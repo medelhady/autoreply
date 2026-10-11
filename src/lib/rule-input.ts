@@ -1,5 +1,5 @@
 import { parseKeywords } from "@/lib/matcher";
-import type { MediaKind } from "@/lib/media-kinds";
+import { maxAttachments, type MediaKind } from "@/lib/media-kinds";
 
 /**
  * Reading and checking a rule that arrives from a browser.
@@ -9,8 +9,6 @@ import type { MediaKind } from "@/lib/media-kinds";
  */
 
 export type RuleAttachment = { type: MediaKind; path: string; name: string };
-
-export const maxAttachments = 30;
 
 export function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

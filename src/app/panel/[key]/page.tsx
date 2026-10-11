@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { mediaKindFor, mediaKindLabels, mediaSizeLimits, type MediaKind } from "@/lib/media-kinds";
+import { maxAttachments, mediaKindFor, mediaKindLabels, mediaSizeLimits, type MediaKind } from "@/lib/media-kinds";
 
 /**
  * The customer's panel: one private link, no login. Rules are listed as cards; adding or editing is
@@ -98,8 +98,14 @@ export default function PanelPage({ params }: { params: { key: string } }) {
     // Copied before the input is cleared: a FileList is a live view of the input.
     const added = picked ? Array.from(picked) : [];
 
-    if (added.length > 0) {
-      setDraft((current) => (current ? { ...current, items: [...current.items, ...added.map((file) => ({ id: nextId(), file }))] } : current));
+    const accepted = added.slice(0, Math.max(maxAttachments - (draft?.items.length ?? 0), 0));
+
+    if (accepted.length > 0) {
+      setDraft((current) => (current ? { ...current, items: [...current.items, ...accepted.map((file) => ({ id: nextId(), file }))] } : current));
+    }
+
+    if (accepted.length < added.length) {
+      setMessage({ ok: false, text: `الحد الأقصى ${maxAttachments} ملفات للرد الواحد، فلم تُضَف الملفات الزائدة.` });
     }
 
     if (picker.current) {
@@ -255,7 +261,7 @@ export default function PanelPage({ params }: { params: { key: string } }) {
 
           <div>الملفات: صورة أو صوت أو فيديو أو مستند</div>
           <input ref={picker} type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={(event) => addFiles(event.target.files)} style={{ display: "none" }} />
-          <button type="button" onClick={() => picker.current?.click()} style={{ ...plain, margin: "8px 0 12px" }}>
+          <button type="button" onClick={() => picker.current?.click()} disabled={draft.items.length >= maxAttachments} style={{ ...plain, margin: "8px 0 12px" }}>
             ➕ إضافة ملف
           </button>
 
@@ -281,7 +287,7 @@ export default function PanelPage({ params }: { params: { key: string } }) {
           ) : null}
 
           <p style={{ fontSize: 14, color: "#555" }}>
-            تصل الملفات بالترتيب الظاهر ثم النص. هذا الرد = <b>{messageCount}</b> {messageCount === 1 ? "رسالة" : "رسائل"} لكل شخص (كل ملف رسالة، والنص رسالة).
+            تصل الملفات بالترتيب الظاهر ثم النص (حتى {maxAttachments} ملفات). هذا الرد = <b>{messageCount}</b> {messageCount === 1 ? "رسالة" : "رسائل"} لكل شخص (كل ملف رسالة، والنص رسالة).
             قلّة الرسائل تقلل تكلفة واتساب. الحد: صورة 5MB، فيديو وصوت 16MB.
           </p>
 

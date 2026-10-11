@@ -32,6 +32,12 @@ export const mediaSizeLimits: Record<MediaKind, number> = {
   document: 100 * 1024 * 1024
 };
 
+/**
+ * Files per rule. The webhook sends them one after another inside its 30-second limit, so a rule
+ * with many more would be cut off part-way and the customer would never get the text.
+ */
+export const maxAttachments = 10;
+
 const extensionKinds: Array<{ pattern: RegExp; kind: MediaKind }> = [
   { pattern: /\.(mp4|3gp|mov|m4v)$/, kind: "video" },
   { pattern: /\.(jpg|jpeg|png|webp)$/, kind: "image" },

@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { mediaKindFor, mediaKindLabels, mediaSizeLimits, type MediaKind } from "@/lib/media-kinds";
+import { maxAttachments, mediaKindFor, mediaKindLabels, mediaSizeLimits, type MediaKind } from "@/lib/media-kinds";
 
 const field: CSSProperties = { display: "block", width: "100%", padding: 10, margin: "4px 0 14px", fontSize: 16, boxSizing: "border-box" };
 
@@ -30,8 +30,14 @@ export default function SetupPage() {
     // empties it before React runs the update, which silently dropped every file after the first.
     const added = picked ? Array.from(picked) : [];
 
-    if (added.length > 0) {
-      setFiles((current) => [...current, ...added]);
+    const accepted = added.slice(0, Math.max(maxAttachments - files.length, 0));
+
+    if (accepted.length > 0) {
+      setFiles((current) => [...current, ...accepted]);
+    }
+
+    if (accepted.length < added.length) {
+      setStatus({ ok: false, message: `الحد الأقصى ${maxAttachments} مرفقات للقاعدة الواحدة، فلم تُضَف الملفات الزائدة.` });
     }
 
     // Cleared so the same file can be picked again, and so the next pick adds to the list.
@@ -187,7 +193,12 @@ export default function SetupPage() {
             onChange={(event) => addFiles(event.target.files)}
             style={{ display: "none" }}
           />
-          <button type="button" onClick={() => picker.current?.click()} style={{ padding: "8px 16px", fontSize: 16, marginTop: 6 }}>
+          <button
+            type="button"
+            onClick={() => picker.current?.click()}
+            disabled={files.length >= maxAttachments}
+            style={{ padding: "8px 16px", fontSize: 16, marginTop: 6 }}
+          >
             ➕ إضافة مرفق
           </button>
         </div>
@@ -217,7 +228,7 @@ export default function SetupPage() {
           </ol>
         ) : null}
         <p style={{ fontSize: 14, color: "#555" }}>
-          اضغط «إضافة مرفق» كلما أردت إضافة ملف آخر، من أي نوع وبأي عدد. تُرسل المرفقات بالترتيب الظاهر ثم النص.
+          اضغط «إضافة مرفق» كلما أردت إضافة ملف آخر، من أي نوع، حتى {maxAttachments} مرفقات. تُرسل المرفقات بالترتيب الظاهر ثم النص.
           حدود واتساب لكل ملف: صورة 5 MB، فيديو وصوت 16 MB. الفيديو بصيغة mp4 (H.264). ولتظهر الرسالة الصوتية كتسجيل
           صوتي استخدم ogg/opus.
         </p>
