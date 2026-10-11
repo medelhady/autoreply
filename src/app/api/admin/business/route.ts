@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import { isAdmin } from "@/lib/admin-auth";
 import { encryptToken } from "@/lib/crypto";
 import { parseKeywords } from "@/lib/matcher";
 import { getServiceSupabase } from "@/lib/supabase/server";
@@ -13,22 +13,42 @@ export const dynamic = "force-dynamic";
  * ADMIN_SECRET and fails closed: with no secret configured, or a short one, nobody gets in.
  */
 
-function isAdmin(given: unknown) {
-  const expected = process.env.ADMIN_SECRET?.trim();
-
-  if (!expected || expected.length < 12 || typeof given !== "string") {
-    return false;
-  }
-
-  // Hashed first so the comparison is constant-time whatever the lengths are.
-  const first = crypto.createHash("sha256").update(given).digest();
-  const second = crypto.createHash("sha256").update(expected).digest();
-
-  return crypto.timingSafeEqual(first, second);
-}
-
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+type RuleAttachment = { type: "video" | "image" | "audio" | "document"; path: string; name: string };
+
+/** Only files this deployment uploaded for this number: the path must start with the number id. */
+function readAttachments(raw: unknown, phoneNumberId: string): RuleAttachment[] | null {
+  if (raw === undefined || raw === null) {
+    return [];
+  }
+
+  if (!Array.isArray(raw) || raw.length > 10) {
+    return null;
+  }
+
+  const attachments: RuleAttachment[] = [];
+
+  for (const item of raw) {
+    const row = (item ?? {}) as Record<string, unknown>;
+    const type = row.type;
+    const path = text(row.path);
+
+    if (
+      (type !== "video" && type !== "image" && type !== "audio" && type !== "document") ||
+      !path.startsWith(`${phoneNumberId}/`) ||
+      path.length > 300 ||
+      path.includes("..")
+    ) {
+      return null;
+    }
+
+    attachments.push({ type, path, name: text(row.name).slice(0, 200) });
+  }
+
+  return attachments;
 }
 
 export async function POST(request: Request) {
@@ -57,11 +77,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "الاسم ومعرّف الرقم والرمز مطلوبة." }, { status: 400 });
   }
 
-  const wantsRule = Boolean(ruleKeywords || ruleReply);
+  const attachments = readAttachments(body.ruleAttachments, phoneNumberId);
 
-  if (wantsRule && (parseKeywords(ruleKeywords).length === 0 || !ruleReply)) {
+  if (!attachments) {
+    return NextResponse.json({ ok: false, error: "مرفقات القاعدة غير صالحة." }, { status: 400 });
+  }
+
+  const wantsRule = Boolean(ruleKeywords || ruleReply || attachments.length > 0);
+
+  if (wantsRule && (parseKeywords(ruleKeywords).length === 0 || (!ruleReply && attachments.length === 0))) {
     return NextResponse.json(
-      { ok: false, error: "القاعدة تحتاج كلمة تشغيل صالحة (3 حروف فأكثر، أو رقماً) ونص رد." },
+      { ok: false, error: "القاعدة تحتاج كلمة تشغيل صالحة (3 حروف فأكثر، أو رقماً) ونص رد أو مرفقاً." },
       { status: 400 }
     );
   }
@@ -109,7 +135,8 @@ export async function POST(request: Request) {
       business_id: business.id,
       name: ruleName || "قاعدة 1",
       keywords: parseKeywords(ruleKeywords).join("، "),
-      reply_text: ruleReply
+      reply_text: ruleReply,
+      attachments
     });
 
     if (ruleError) {
