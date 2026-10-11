@@ -108,7 +108,10 @@ export async function handleIncoming(supabase: SupabaseClient, incoming: Incomin
     .from("rules")
     .select("id, name, keywords, reply_text, attachments, active")
     .eq("business_id", business.id)
-    .eq("active", true);
+    .eq("active", true)
+    // Newest first: when two rules share a keyword, the one saved last is the one meant, and the
+    // matcher keeps the first of equals.
+    .order("created_at", { ascending: false });
 
   const rules = ((rows ?? []) as RuleRow[]).map((row) => ({
     id: row.id,
