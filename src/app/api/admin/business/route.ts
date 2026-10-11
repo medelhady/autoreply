@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminRefusal, isAdmin } from "@/lib/admin-auth";
 import { encryptToken } from "@/lib/crypto";
 import { parseKeywords } from "@/lib/matcher";
+import { readAttachments, text } from "@/lib/rule-input";
 import { getServiceSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -12,44 +13,6 @@ export const dynamic = "force-dynamic";
  * Until the customer dashboard exists, this is how a number gets connected. It is protected by
  * ADMIN_SECRET and fails closed: with no secret configured, or a short one, nobody gets in.
  */
-
-function text(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-type RuleAttachment = { type: "video" | "image" | "audio" | "document"; path: string; name: string };
-
-/** Only files this deployment uploaded for this number: the path must start with the number id. */
-function readAttachments(raw: unknown, phoneNumberId: string): RuleAttachment[] | null {
-  if (raw === undefined || raw === null) {
-    return [];
-  }
-
-  if (!Array.isArray(raw) || raw.length > 30) {
-    return null;
-  }
-
-  const attachments: RuleAttachment[] = [];
-
-  for (const item of raw) {
-    const row = (item ?? {}) as Record<string, unknown>;
-    const type = row.type;
-    const path = text(row.path);
-
-    if (
-      (type !== "video" && type !== "image" && type !== "audio" && type !== "document") ||
-      !path.startsWith(`${phoneNumberId}/`) ||
-      path.length > 300 ||
-      path.includes("..")
-    ) {
-      return null;
-    }
-
-    attachments.push({ type, path, name: text(row.name).slice(0, 200) });
-  }
-
-  return attachments;
-}
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -123,7 +86,7 @@ export async function POST(request: Request) {
       },
       { onConflict: "phone_number_id" }
     )
-    .select("id")
+    .select("id, panel_key")
     .single();
 
   if (error || !business) {
@@ -145,5 +108,5 @@ export async function POST(request: Request) {
   }
 
   // The token is never echoed back.
-  return NextResponse.json({ ok: true, businessId: business.id, ruleSaved: wantsRule });
+  return NextResponse.json({ ok: true, businessId: business.id, ruleSaved: wantsRule, panelKey: business.panel_key });
 }

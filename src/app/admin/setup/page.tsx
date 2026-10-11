@@ -21,6 +21,7 @@ async function postJson(url: string, payload: unknown) {
 export default function SetupPage() {
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [panelLink, setPanelLink] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const picker = useRef<HTMLInputElement>(null);
 
@@ -116,6 +117,7 @@ export default function SetupPage() {
 
       const result = await postJson("/api/admin/business", { ...values, ruleAttachments });
 
+      setPanelLink(result.ok && result.panelKey ? `${window.location.origin}/panel/${String(result.panelKey)}` : "");
       setStatus(
         result.ok
           ? { ok: true, message: result.ruleSaved ? "تم حفظ النشاط والقاعدة ✅" : "تم حفظ النشاط ✅" }
@@ -224,6 +226,14 @@ export default function SetupPage() {
           {busy ? "جارٍ التنفيذ..." : "حفظ"}
         </button>
       </form>
+
+      {panelLink ? (
+        <p style={{ marginTop: 16 }}>
+          رابط لوحة العميل (أرسله له وحده):
+          <br />
+          <input readOnly value={panelLink} onFocus={(event) => event.target.select()} style={field} />
+        </p>
+      ) : null}
 
       {status ? (
         <p role="status" style={{ marginTop: 16, color: status.ok ? "green" : "crimson" }}>

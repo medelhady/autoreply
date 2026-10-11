@@ -133,3 +133,8 @@ grant update (name, fallback_text, active) on businesses to authenticated;
 insert into storage.buckets (id, name, public)
 values ('rule-media', 'rule-media', false)
 on conflict (id) do nothing;
+
+-- Customer panel link (also in panel.sql for databases created before it existed).
+alter table businesses
+  add column if not exists panel_key text not null default encode(gen_random_bytes(18), 'hex');
+create unique index if not exists businesses_panel_key_unique on businesses (panel_key);
