@@ -25,8 +25,12 @@ export default function SetupPage() {
   const picker = useRef<HTMLInputElement>(null);
 
   function addFiles(picked: FileList | null) {
-    if (picked && picked.length > 0) {
-      setFiles((current) => [...current, ...Array.from(picked)]);
+    // Copied out of the FileList first: it is a live view of the input, and clearing the input below
+    // empties it before React runs the update, which silently dropped every file after the first.
+    const added = picked ? Array.from(picked) : [];
+
+    if (added.length > 0) {
+      setFiles((current) => [...current, ...added]);
     }
 
     // Cleared so the same file can be picked again, and so the next pick adds to the list.
