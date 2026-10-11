@@ -129,10 +129,6 @@ export async function handleIncoming(supabase: SupabaseClient, incoming: Incomin
     return { handled: true as const, matched: false, sent: 0 };
   }
 
-  if (rule) {
-    await supabase.rpc("increment_rule_hit", { p_rule_id: rule.id });
-  }
-
   let credentials: Credentials;
 
   try {
@@ -220,6 +216,12 @@ export async function handleIncoming(supabase: SupabaseClient, incoming: Incomin
         error: error instanceof Error ? error.message.slice(0, 500) : "send-failed"
       });
     }
+  }
+
+  // Counted only when something actually reached the customer: a rule whose every send failed (an
+  // expired token, say) must not show up in the panel as "reached N people".
+  if (rule && sent > 0) {
+    await supabase.rpc("increment_rule_hit", { p_rule_id: rule.id });
   }
 
   return { handled: true as const, matched: Boolean(rule), sent };
