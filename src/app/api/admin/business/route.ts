@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin-auth";
+import { adminRefusal, isAdmin } from "@/lib/admin-auth";
 import { encryptToken } from "@/lib/crypto";
 import { parseKeywords } from "@/lib/matcher";
 import { getServiceSupabase } from "@/lib/supabase/server";
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   }
 
   if (!isAdmin(body.adminSecret)) {
-    return NextResponse.json({ ok: false, error: "كلمة مرور الإدارة غير صحيحة." }, { status: 401 });
+    return adminRefusal(body.adminSecret);
   }
 
   const name = text(body.name);

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin-auth";
+import { adminRefusal, isAdmin } from "@/lib/admin-auth";
 import { extensionForMedia, mediaKindFor, mediaKindLabels, mediaSizeLimits } from "@/lib/media-kinds";
 import { getServiceSupabase } from "@/lib/supabase/server";
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   if (!isAdmin(body.adminSecret)) {
-    return NextResponse.json({ ok: false, error: "كلمة مرور الإدارة غير صحيحة." }, { status: 401 });
+    return adminRefusal(body.adminSecret);
   }
 
   const phoneNumberId = String(body.phoneNumberId ?? "").replace(/\D/g, "");
