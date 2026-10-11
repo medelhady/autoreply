@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { mediaKindFor, mediaKindLabels, mediaSizeLimits, type MediaKind } from "@/lib/media-kinds";
 
 const field: CSSProperties = { display: "block", width: "100%", padding: 10, margin: "4px 0 14px", fontSize: 16, boxSizing: "border-box" };
@@ -22,6 +22,37 @@ export default function SetupPage() {
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const picker = useRef<HTMLInputElement>(null);
+
+  function addFiles(picked: FileList | null) {
+    if (picked && picked.length > 0) {
+      setFiles((current) => [...current, ...Array.from(picked)]);
+    }
+
+    // Cleared so the same file can be picked again, and so the next pick adds to the list.
+    if (picker.current) {
+      picker.current.value = "";
+    }
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, position) => position !== index));
+  }
+
+  function moveFile(index: number, direction: -1 | 1) {
+    setFiles((current) => {
+      const target = index + direction;
+
+      if (target < 0 || target >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+
+      return next;
+    });
+  }
 
   async function uploadFiles(adminSecret: string, phoneNumberId: string): Promise<Attachment[]> {
     if (files.length === 0) {
@@ -140,34 +171,49 @@ export default function SetupPage() {
           <textarea name="ruleReply" rows={3} style={field} />
         </label>
 
-        <label>
-          مرفقات الرد: صورة أو صوت أو فيديو أو ملف (اختياري)
+        <div style={{ margin: "4px 0 14px" }}>
+          <div>مرفقات الرد: صورة أو صوت أو فيديو أو ملف (اختياري)</div>
           <input
+            ref={picker}
             type="file"
             multiple
             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
-            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
-            style={field}
+            onChange={(event) => addFiles(event.target.files)}
+            style={{ display: "none" }}
           />
-        </label>
+          <button type="button" onClick={() => picker.current?.click()} style={{ padding: "8px 16px", fontSize: 16, marginTop: 6 }}>
+            ➕ إضافة مرفق
+          </button>
+        </div>
+
         {files.length > 0 ? (
-          <ol style={{ marginTop: -6 }}>
-            {files.map((file) => {
+          <ol style={{ paddingInlineStart: 22 }}>
+            {files.map((file, index) => {
               const kind = mediaKindFor(file.type, file.name);
               const tooBig = file.size > mediaSizeLimits[kind];
 
               return (
-                <li key={`${file.name}-${file.size}`} style={{ color: tooBig ? "crimson" : undefined }}>
+                <li key={`${index}-${file.name}-${file.size}`} style={{ color: tooBig ? "crimson" : undefined, marginBottom: 6 }}>
                   {mediaKindLabels[kind].icon} {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
-                  {tooBig ? ` — أكبر من حد واتساب (${Math.round(mediaSizeLimits[kind] / (1024 * 1024))} MB)` : ""}
+                  {tooBig ? ` — أكبر من حد واتساب (${Math.round(mediaSizeLimits[kind] / (1024 * 1024))} MB)` : ""}{" "}
+                  <button type="button" onClick={() => moveFile(index, -1)} disabled={index === 0} aria-label="تقديم">
+                    ↑
+                  </button>{" "}
+                  <button type="button" onClick={() => moveFile(index, 1)} disabled={index === files.length - 1} aria-label="تأخير">
+                    ↓
+                  </button>{" "}
+                  <button type="button" onClick={() => removeFile(index)} aria-label="حذف">
+                    ✕
+                  </button>
                 </li>
               );
             })}
           </ol>
         ) : null}
         <p style={{ fontSize: 14, color: "#555" }}>
-          تُرسل المرفقات بترتيبها ثم النص. حدود واتساب: صورة 5 MB، فيديو وصوت 16 MB. الفيديو بصيغة mp4 (H.264).
-          ولتظهر الرسالة الصوتية كتسجيل صوتي استخدم ملف ogg/opus.
+          اضغط «إضافة مرفق» كلما أردت إضافة ملف آخر، من أي نوع وبأي عدد. تُرسل المرفقات بالترتيب الظاهر ثم النص.
+          حدود واتساب لكل ملف: صورة 5 MB، فيديو وصوت 16 MB. الفيديو بصيغة mp4 (H.264). ولتظهر الرسالة الصوتية كتسجيل
+          صوتي استخدم ogg/opus.
         </p>
 
         <button type="submit" disabled={busy} style={{ padding: "10px 20px", fontSize: 16 }}>

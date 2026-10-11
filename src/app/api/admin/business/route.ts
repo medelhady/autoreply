@@ -25,7 +25,7 @@ function readAttachments(raw: unknown, phoneNumberId: string): RuleAttachment[] 
     return [];
   }
 
-  if (!Array.isArray(raw) || raw.length > 10) {
+  if (!Array.isArray(raw) || raw.length > 30) {
     return null;
   }
 
